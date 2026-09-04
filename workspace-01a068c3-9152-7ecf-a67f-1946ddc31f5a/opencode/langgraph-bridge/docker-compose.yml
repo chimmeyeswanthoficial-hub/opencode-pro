@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # OpenCode Pro Daemon (Headless Execution & Tool Runner)
+  opencode-daemon:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: ["opencode", "daemon", "--port", "8080", "--host", "0.0.0.0", "--watch-obsidian", "/vault"]
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../:/workspace
+      - ../obsidian-command-centre:/vault
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - LANGFUSE_HOST=http://langfuse-server:3000
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+    restart: unless-stopped
+
+  # Langfuse Observability & Cost Tracking
+  langfuse-server:
+    image: langfuse/langfuse:2
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@langfuse-db:5432/langfuse
+      - NEXTAUTH_SECRET=changeme_secret_key_langfuse
+      - SALT=changeme_salt_key_langfuse
+    depends_on:
+      - langfuse-db
+    restart: unless-stopped
+
+  langfuse-db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=langfuse
+    volumes:
+      - langfuse_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  langfuse_data:
